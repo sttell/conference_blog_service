@@ -24,10 +24,11 @@ Rel(admin, web_site, "Просмотр, добавление и редактир
 Rel(moderator, web_site, "Модерация контента и пользователей")
 Rel(user, web_site, "Регистрация, просмотр информации о конференциях и докладах")
 
-Rel(web_site, search_service, "Поиск пользователей", "localhost/user_search")
-Rel(web_site, auth_service, "Авторизация пользователей", "localhost/user_auth")
-Rel(web_site, paper_service, "Управление докладами пользователя", "localhost/paper")
-Rel(web_site, conference_service, "Управление конференциями", "localhost/conf")
+Rel(web_site, search_service, "[HTTPS]: Поиск пользователей", "localhost/user_search")
+Rel(web_site, auth_service, "[HTTPS]: Авторизация пользователей", "localhost/user_auth")
+Rel(web_site, paper_service, "[HTTPS]: Управление докладами пользователя", "localhost/paper")
+Rel(web_site, conference_service, "[HTTPS]: Управление конференциями", "localhost/conf")
+
 
 
 Rel(search_service, user_db, "SELECT", "SQL")
