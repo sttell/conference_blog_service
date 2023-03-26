@@ -7,7 +7,7 @@ RUN git clone -b master https://github.com/pocoproject/poco.git &&  \
     cmake .. && make -j8 &&  \
     sudo make install &&  \
     cd .. && cd ..
-RUN git clone https://github.com/sttell/conference_blog_service.git -b feature/lab_2 && \
+RUN git clone https://github.com/sttell/conference_blog_service.git -b main && \
     sudo ldconfig && \
     cd conference_blog_service/sources && mkdir build && cd build && cmake .. && make -j8
 
