@@ -24,7 +24,12 @@ namespace search_service {
                 std::cout << arg << std::endl;
             }
 
-            config_ = std::make_shared<search_service::Config>("users_service_data/server_config.json");
+            if ( args.empty() ) {
+                std::cerr << "Error. Application required the service config path as first command line argument." << std::endl;
+                return 1;
+            }
+
+            config_ = std::make_shared<search_service::Config>(args[0]);
             auto network_config = config_->GetNetworkConfig();
             if ( !database::Database::Instance().IsConnected() ) {
                 database::Database::Instance().BindConfigure(config_->GetDatabaseConfig());

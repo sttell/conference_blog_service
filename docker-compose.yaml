@@ -3,7 +3,7 @@ version: '2.1'
 services:
   users-service-db-node-ex01:
     build:
-      context: ./sources/users_db_service/mariadb
+      context: ./sources/users_service/mariadb
       dockerfile: Dockerfile
     container_name: users-service-db-node-ex01
     restart: unless-stopped
@@ -21,24 +21,24 @@ services:
     ports:
       - 3360:3306
     healthcheck:
-      test: "/usr/bin/mysql --user=stud --password=stud --execute \"SHOW DATABASES;\""
+      test: "/usr/bin/mysql --user=admin --password=admin --execute \"SHOW DATABASES;\""
       timeout: 20s
       retries: 5
     volumes:
       - users-service-db-node-ex01-data:/var/lib/mysql
 
-#  users_db_service:
-#    build:
-#      context: sources/users_db_service
-#      dockerfile: Dockerfile
-#    container_name: users_db_service
-#    ports:
-#      - 8080:8080
-#    networks:
-#      - arch-network
-#    depends_on:
-#      users-service-db-node-ex01:
-#        condition: service_healthy
+  users_service:
+    build:
+      context: sources/users_service
+      dockerfile: Dockerfile
+    container_name: users_service
+    ports:
+      - 8080:8080
+    networks:
+      - arch-network
+    depends_on:
+      users-service-db-node-ex01:
+        condition: service_healthy
 
 volumes:
   users-service-db-node-ex01-data:
