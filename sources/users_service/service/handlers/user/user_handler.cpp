@@ -325,7 +325,7 @@ namespace handler {
         }
 
         /* Проверка доступа к запросу. */
-        if ( request_sender.GetRole() <= database::UserRole::User ) {
+        if ( request_sender.GetRole() < database::UserRole::User ) {
             SetPermissionDeniedResponse(response, "User does not have privileges for this action");
             return;
         }

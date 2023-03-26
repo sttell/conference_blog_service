@@ -13,6 +13,18 @@ namespace handler {
 
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
 
+    private:
+
+        void HandleGetRequest(HTTPServerRequest& request, HTTPServerResponse& response);
+
+    private:
+
+        void SetBadRequestResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetNotFoundResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetInternalErrorResponse(HTTPServerResponse& response, const std::string& description);
+
     };
 
 } // namespace handler

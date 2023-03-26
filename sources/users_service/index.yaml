@@ -188,6 +188,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/users"
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         '401':
           description: Пользователь отправивший запрос не авторизован
           content:

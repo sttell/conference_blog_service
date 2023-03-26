@@ -11,8 +11,22 @@ namespace handler {
         ~SearchHandler() override = default;
 
     public:
-
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
+
+    private:
+
+        void HandleGetRequest(HTTPServerRequest& request, HTTPServerResponse& response);
+
+    private:
+        void SetBadRequestResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetUnauthorizedResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetPermissionDeniedResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetNotFoundResponse(HTTPServerResponse& response, const std::string& description);
+
+        void SetInternalErrorResponse(HTTPServerResponse& response, const std::string& description);
 
     };
 
