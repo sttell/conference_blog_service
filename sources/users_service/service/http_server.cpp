@@ -29,6 +29,10 @@ namespace search_service {
                 return 1;
             }
 
+            std::cout << "Arguments: " << std::endl;
+            for ( const auto& arg : args ) {
+                std::cout << "\t" << arg << std::endl;
+            }
             config_ = std::make_shared<search_service::Config>(args[0]);
             auto network_config = config_->GetNetworkConfig();
             if ( !database::Database::Instance().IsConnected() ) {
