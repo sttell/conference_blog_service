@@ -2,6 +2,7 @@
 #define SERVER_USER_HANDLER_H
 
 #include "../interface/i_request_handler.h"
+#include <optional>
 
 namespace handler {
 
