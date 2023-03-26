@@ -1,0 +1,49 @@
+version: '2.1'
+
+services:
+  users-service-db-node-ex01:
+    build:
+      context: ./sources/users_service/mariadb
+      dockerfile: Dockerfile
+    container_name: users-service-db-node-ex01
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: archdb
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: '1'
+    command: >
+      --sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
+      --general-log=ON
+      --log-queries-not-using-indexes=ON
+    networks:
+      - arch-network
+    ports:
+      - 3360:3306
+    healthcheck:
+      test: "/usr/bin/mysql --user=admin --password=admin --execute \"SHOW DATABASES;\""
+      timeout: 20s
+      retries: 5
+    volumes:
+      - users-service-db-node-ex01-data:/var/lib/mysql
+
+  users_service:
+    build:
+      context: sources/users_service
+      dockerfile: Dockerfile
+    container_name: users_service
+    ports:
+      - 8080:8080
+    networks:
+      - arch-network
+    depends_on:
+      users-service-db-node-ex01:
+        condition: service_healthy
+
+volumes:
+  users-service-db-node-ex01-data:
+
+networks:
+  arch-network:
+    driver: "bridge"
+    external: false
