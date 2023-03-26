@@ -5,7 +5,7 @@
   },
   "database": {
     "from_env": false,
-    "host": "127.0.0.1",
+    "host": "users-service-db-node-ex01",
     "port": 3306,
     "login": "admin",
     "password": "admin",
