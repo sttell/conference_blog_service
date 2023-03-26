@@ -20,6 +20,8 @@ namespace handler {
 
         void HandleUserGetRequest(HTTPServerRequest& request, HTTPServerResponse& response);
 
+        void HandleUserRoleUpdateRequest(HTTPServerRequest& request, HTTPServerResponse& response);
+
     private:
         void SetBadRequestResponse(HTTPServerResponse& response, const std::string& description);
 

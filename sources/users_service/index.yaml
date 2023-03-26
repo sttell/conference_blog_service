@@ -101,6 +101,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        '403':
+          description: Пользователь не имеет прав на выполнение действия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Пользователь не найден
           content:
@@ -132,7 +138,7 @@ paths:
 
       responses:
         '200':
-          description: Идентификатор, добавленного пользователя
+          description: Идентификатор пользователя с измененными правами
           content:
             application/json:
               schema:

@@ -1,6 +1,5 @@
 #include "user_handler.h"
 
-#include <Poco/JSON/JSON.h>
 #include <Poco/JSON/Object.h>
 #include <Poco/Net/HTMLForm.h>
 #include <Poco/Base64Decoder.h>
@@ -10,7 +9,6 @@
 
 #include <iostream>
 #include <regex>
-#include <sstream>
 
 #define EMAIL_REGEX "^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$"
 #define LOGIN_REGEX "^[a-z0-9_.]{3,16}$"
@@ -26,7 +24,7 @@ namespace {
      * @param fields - Обязательные поля
      * @return true - если все перечисленные поля находятся в форме, иначе - false
      */
-    inline bool IsFormHasRequired(const HTMLForm& form, std::vector<std::string> fields) {
+    inline bool IsFormHasRequired(const HTMLForm& form, const std::vector<std::string>& fields) {
         bool is_condition_done = true;
         for ( const auto& field : fields ) {
             is_condition_done = is_condition_done && (form.has(field));
@@ -119,7 +117,7 @@ namespace {
      * @param delimiter разделитель
      * @return вектор подстрок разделенных по delimiter
      */
-    std::vector<std::string> SplitString(const std::string& str, std::string delimiter=" ") {
+    std::vector<std::string> SplitString(const std::string& str, const std::string& delimiter=" ") {
         std::string str_copy = str;
         size_t pos;
         std::vector<std::string> tokens;
@@ -147,13 +145,20 @@ namespace handler {
         HTMLForm form(request, request.stream());
         try {
 
-            /* Вызов обработчика метода POST */
-            if ( request.getMethod() == Poco::Net::HTTPServerRequest::HTTP_POST ) {
+            /* Вызов обработчика метода POST для /user/role URI */
+            if ( request.getURI().find("/role") != std::string::npos &&
+                 request.getMethod() == Poco::Net::HTTPRequest::HTTP_POST ) {
+
+                HandleUserRoleUpdateRequest(request, response);
+                return;
+
+            /* Вызов обработчика метода POST для /user URI */
+            }else if ( request.getMethod() == Poco::Net::HTTPServerRequest::HTTP_POST ) {
 
                 HandleUserPostRequest(request, response);
                 return;
 
-            /* Вызов обработчика метода GET */
+            /* Вызов обработчика метода GET для /user URI */
             } else if ( request.getMethod() == Poco::Net::HTTPServerRequest::HTTP_GET ) {
 
                 HandleUserGetRequest(request, response);
@@ -173,6 +178,7 @@ namespace handler {
             std::cerr << error_desc << std::endl;
 
             SetInternalErrorResponse(response, error_desc);
+            return;
         }
 
     }
@@ -197,7 +203,8 @@ namespace handler {
                 "password"
         };
         if ( !IsFormHasRequired(form, required_fields) ) {
-            SetBadRequestResponse(response);
+            SetBadRequestResponse(response, "Wrong request data.");
+            return;
         }
 
         /* Получаем данные из формы */
@@ -213,13 +220,34 @@ namespace handler {
         }
 
         /* Проверка валидности данных переданных с клиента */
-        if ( !IsValidName(first_name) )     SetBadRequestResponse(response, "Wrong first name format.");
-        if ( !IsValidName(last_name)  )     SetBadRequestResponse(response, "Wrong last name format.");
-        if ( !IsValidName(middle_name) )    SetBadRequestResponse(response, "Wrong middle name format.");
-        if ( !IsValidEmail(email) )         SetBadRequestResponse(response, "Wrong email format.");
-        if ( !IsValidGender(gender) )       SetBadRequestResponse(response, R"(Wrong gender format. Expected "male" or "female")");
-        if ( !IsValidLogin(login) )         SetBadRequestResponse(response, "Wrong login format.");
-        if ( !IsValidPassword(password) )   SetBadRequestResponse(response, "Wrong password format.");
+        if ( !IsValidName(first_name) ) {
+            SetBadRequestResponse(response, "Wrong first name format.");
+            return;
+        }
+        if ( !IsValidName(last_name)  ) {
+            SetBadRequestResponse(response, "Wrong last name format.");
+            return;
+        }
+        if ( !IsValidName(middle_name) ) {
+            SetBadRequestResponse(response, "Wrong middle name format.");
+            return;
+        }
+        if ( !IsValidEmail(email) ) {
+            SetBadRequestResponse(response, "Wrong email format.");
+            return;
+        }
+        if ( !IsValidGender(gender) ) {
+            SetBadRequestResponse(response, R"(Wrong gender format. Expected "male" or "female")");
+            return;
+        }
+        if ( !IsValidLogin(login) ) {
+            SetBadRequestResponse(response, "Wrong login format.");
+            return;
+        }
+        if ( !IsValidPassword(password) ) {
+            SetBadRequestResponse(response, "Wrong password format.");
+            return;
+        }
 
         /* Создание пользователя */
         database::User user;
@@ -289,6 +317,7 @@ namespace handler {
                 request_sender = user.value();
             } else {
                 SetBadRequestResponse(response, "Invalid login or password.");
+                return;
             }
         } else {
             SetUnauthorizedResponse(response, "User is unauthorized.");
@@ -304,6 +333,7 @@ namespace handler {
         /* Проверка валидности формы */
         if ( !IsFormHasRequired(form, { "id" }) ) {
             SetBadRequestResponse(response, "Wrong request. Form must had id field.");
+            return;
         }
 
         /* Если форма валидна, то обрабатываем */
@@ -326,6 +356,89 @@ namespace handler {
         root->set("instance", "/user");
         auto json_user = user->ToJSON();
         root->set("user", json_user);
+        std::ostream &ostr = response.send();
+        Poco::JSON::Stringifier::stringify(root, ostr);
+
+    }
+
+    /**
+     * @brief Обработка POST запроса на изменение роли пользователя.
+     * @param request - HTTP запрос с данными пользователя
+     * @param response - HTTP ответ
+     */
+    void UserHandler::HandleUserRoleUpdateRequest(Poco::Net::HTTPServerRequest &request,
+                                                  Poco::Net::HTTPServerResponse &response) {
+
+        database::User request_sender;
+
+        /* Проверка авторизации. TODO: Вынести в отдельный обработчик запросов. */
+        if ( request.hasCredentials() ) {
+
+            std::string scheme;
+            std::string base64;
+            request.getCredentials(scheme, base64);
+
+            std::stringstream decode_stream;
+            decode_stream << base64;
+            Poco::Base64Decoder base64_decoder{decode_stream};
+
+            std::string decoded;
+            base64_decoder >> decoded;
+
+            std::cout << decoded << std::endl;
+
+            auto credentials = SplitString(decoded, ":");
+            auto user = database::User::AuthUser(credentials[0], credentials[1]);
+            if ( user.has_value() ) {
+                request_sender = user.value();
+            } else {
+                SetBadRequestResponse(response, "Invalid login or password.");
+                return;
+            }
+        } else {
+            SetUnauthorizedResponse(response, "User is unauthorized.");
+            return;
+        }
+
+        /* Проверка доступа к запросу. */
+        if ( request_sender.GetRole() < database::UserRole::Administrator ) {
+            SetPermissionDeniedResponse(response, "User does not have privileges for this action");
+            return;
+        }
+
+        HTMLForm form(request);
+
+        /* Проверка валидности формы */
+        if ( !IsFormHasRequired(form, { "login", "role" }) ) {
+            SetBadRequestResponse(response, "Wrong request. Form must had id field.");
+            return;
+        }
+
+        /* Парсинг формы */
+        std::string login = form.get("login");
+        database::UserRole new_role{form.get("role")};
+        if ( !IsValidLogin(login) ) {
+            SetBadRequestResponse(response, "User login has invalid format.");
+            return;
+        }
+
+        /* Изменение привелегий */
+        auto changed_user = database::User::ChangeRole(login, new_role);
+        if ( !changed_user.has_value() ) {
+            SetNotFoundResponse(response, "User with requested login not found.");
+            return;
+        }
+
+        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
+        response.setChunkedTransferEncoding(true);
+        response.setContentType("application/json");
+        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
+        root->set("type", "/success");
+        root->set("title", "OK");
+        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_OK);
+        root->set("instance", "/user");
+        root->set("id", std::to_string(changed_user->GetID()));
+
         std::ostream &ostr = response.send();
         Poco::JSON::Stringifier::stringify(root, ostr);
 
