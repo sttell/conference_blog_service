@@ -1,0 +1,299 @@
+openapi: '3.0.0'
+info:
+  version: '1.0.0'
+  title: 'Conference site server API'
+  description: API
+
+servers:
+  - url: http://localhost:8080
+    description: Сервис управления информацией пользователей
+
+paths:
+  /user:
+    post:
+      summary: Добавление нового пользователя
+      parameters:
+        - name: first_name
+          description: Имя пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: last_name
+          description: Фамилия пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: middle_name
+          description: Отчество пользователя
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          description: E-Mail пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: gender
+          description: Пол пользователя в формате (male/female)
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: login
+          description: Логин пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: password
+          description: Пароль пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Идентификатор, добавленного пользователя
+          content:
+            application/json:
+              schema:
+                type: integer
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '406':
+          description: Пользователь уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Поиск пользователя по ID
+      parameters:
+        - name: id
+          description: ID пользователя
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Пользователь найден.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/user"
+        '401':
+          description: Пользователь отправивший запрос не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user/role:
+    post:
+      summary: Изменение роли пользователя в системе
+      parameters:
+        - name: login
+          description: Логин пользователя к которому применяются изменения роли
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: role
+          description: Новая роль пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+
+      responses:
+        '200':
+          description: Идентификатор, добавленного пользователя
+          content:
+            application/json:
+              schema:
+                type: integer
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Пользователь отправивший запрос не имеет доступа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Пользователь с таким login не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /search:
+    get:
+      summary: Поиск пользователя по маске Имя Фамилия
+      parameters:
+        - name: first_name
+          description: Имя пользователя
+          in: query
+          schema:
+            type: string
+        - name: last_name
+          description: Фамилия пользователя
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Пользователи найдены.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/users"
+        '401':
+          description: Пользователь отправивший запрос не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '404':
+          description: Пользоватей по такой маске не найдено.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth:
+    get:
+      summary: Аутентификация пользователя
+      parameters:
+        - name: login
+          description: Логин пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: password
+          description: Логин пользователя
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Доступ предоставлен.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/auth_user"
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '500':
+          description: Неизвестная ошибка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    user_id:
+      description: Уникальный идентификатор пользователя
+      type: integer
+    user_role:
+      description: Роль пользователя в системе
+      type: string
+    auth_user:
+      type: object
+      required:
+        - id
+        - user_role
+      properties:
+        id:
+          $ref: "#/components/schemas/user_id"
+        user_role:
+          $ref: "#/components/schemas/user_role"
+    user:
+      type: object
+      required:
+        - id
+        - first_name
+        - last_name
+        - middle_name
+        - email
+        - gender
+      properties:
+        id:
+          $ref: '#/components/schemas/user_id'
+        first_name:
+          type: string
+        last_name:
+          type: string
+        second_name:
+          type: string
+        email:
+          type: string
+        gender:
+          type: string
+    users:
+      type: array
+      items:
+        $ref: '#/components/schemas/user'
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Сообщение о ошибке
+          type: string
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []

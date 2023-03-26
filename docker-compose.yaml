@@ -1,11 +1,11 @@
 version: '2.1'
 
 services:
-  search-service-db-node-ex01:
+  users-service-db-node-ex01:
     build:
-      context: ./sources/search_service/mariadb
+      context: ./sources/users_db_service/mariadb
       dockerfile: Dockerfile
-    container_name: search-service-db-node-ex01
+    container_name: users-service-db-node-ex01
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: archdb
@@ -25,29 +25,23 @@ services:
       timeout: 20s
       retries: 5
     volumes:
-      - search-service-db-node-ex01-data:/var/lib/mysql
+      - users-service-db-node-ex01-data:/var/lib/mysql
 
-  search_service:
-    build:
-      context: sources/search_service
-      dockerfile: Dockerfile
-    container_name: search_service
-    environment:
-      - DB_HOST=search-service-db-node-ex01
-      - DB_PORT=3306
-      - DB_LOGIN=admin
-      - DB_PASSWORD=admin
-      - DB_DATABASE=archdb
-    ports:
-      - 8080:8080
-    networks:
-      - arch-network
-    depends_on:
-      search-service-db-node-ex01:
-        condition: service_healthy
+#  users_db_service:
+#    build:
+#      context: sources/users_db_service
+#      dockerfile: Dockerfile
+#    container_name: users_db_service
+#    ports:
+#      - 8080:8080
+#    networks:
+#      - arch-network
+#    depends_on:
+#      users-service-db-node-ex01:
+#        condition: service_healthy
 
 volumes:
-  search-service-db-node-ex01-data:
+  users-service-db-node-ex01-data:
 
 networks:
   arch-network:

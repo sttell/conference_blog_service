@@ -18,6 +18,13 @@ namespace exceptions {
     REGISTER_EXCEPTION_TYPE(FileNotFoundError,         WrongPathError);
     REGISTER_EXCEPTION_TYPE(ConfigNotFoundError,       FileNotFoundError);
 
+    REGISTER_EXCEPTION_TYPE(InternalError, std::runtime_error);
+    REGISTER_EXCEPTION_TYPE(UnexpectedFactoryType, InternalError);
+    REGISTER_EXCEPTION_TYPE(UnexpectedHandlerType, UnexpectedFactoryType);
+
+    REGISTER_EXCEPTION_TYPE(BadRequest, std::runtime_error);
+    REGISTER_EXCEPTION_TYPE(BadURI, BadRequest);
+
 } // namespace exceptions
 
 #endif //SERVER_ERRORS_H
