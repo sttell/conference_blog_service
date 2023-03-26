@@ -2,8 +2,11 @@
 
 #include <Poco/JSON/JSON.h>
 #include <Poco/JSON/Object.h>
+#include <Poco/JSON/Parser.h>
 #include <Poco/Net/HTMLForm.h>
+#include <Poco/Net/HTTPClientSession.h>
 #include <Poco/Base64Decoder.h>
+#include <Poco/URI.h>
 
 #include "database/database.h"
 #include "database/user.h"
@@ -14,31 +17,10 @@
 
 using Poco::Net::HTMLForm;
 
-namespace {
-
-    /**
-     * @brief Разделение строки на подстроки по разделяющему символу
-     * @param str исходная строка
-     * @param delimiter разделитель
-     * @return вектор подстрок разделенных по delimiter
-     */
-    std::vector<std::string> SplitString(const std::string& str, const std::string& delimiter=" ") {
-        std::string str_copy = str;
-        size_t pos;
-        std::vector<std::string> tokens;
-        while ((pos = str_copy.find(delimiter)) != std::string::npos) {
-            tokens.push_back(str_copy.substr(0, pos));
-            str_copy.erase(0, pos + delimiter.length());
-        }
-        tokens.push_back(str_copy);
-        return tokens;
-    }
-
-} // namespace [ functions ]
-
 namespace handler {
 
-    SearchHandler::SearchHandler(const std::string &format) : IRequestHandler(format, HandlerType::Search) { /* Empty */ }
+    SearchHandler::SearchHandler(const std::string &format) :
+        IRequestHandler(format, HandlerType::Search, "/search") { /* Empty */ }
 
     void SearchHandler::handleRequest([[maybe_unused]]Poco::Net::HTTPServerRequest &request, Poco::Net::HTTPServerResponse &response) {
         try {
@@ -60,37 +42,62 @@ namespace handler {
     void
     SearchHandler::HandleGetRequest(Poco::Net::HTTPServerRequest &request, Poco::Net::HTTPServerResponse &response) {
 
-        database::User request_sender;
+        database::UserRole request_sender_role;
 
-        /* Проверка авторизации. TODO: Вынести в отдельный обработчик запросов. */
-        if ( request.hasCredentials() ) {
-
-            std::string scheme;
-            std::string base64;
-            request.getCredentials(scheme, base64);
-
-            std::stringstream decode_stream;
-            decode_stream << base64;
-            Poco::Base64Decoder base64_decoder{decode_stream};
-
-            std::string decoded;
-            base64_decoder >> decoded;
-
-            auto credentials = SplitString(decoded, ":");
-            auto user = database::User::AuthUser(credentials[0], credentials[1]);
-            if ( user.has_value() ) {
-                request_sender = user.value();
-            } else {
-                SetBadRequestResponse(response, "Invalid login or password.");
+        {
+            if (!request.hasCredentials()) {
+                SetUnauthorizedResponse(response, "User is unauthorized.");
                 return;
             }
-        } else {
-            SetUnauthorizedResponse(response, "User is unauthorized.");
-            return;
+
+            std::string schema;
+            std::string base64;
+            request.getCredentials(schema, base64);
+
+            std::string auth_token = schema + " " + base64;
+            std::string url = "http://127.0.0.1:8080/auth";
+            std::cout << auth_token << std::endl;
+
+            Poco::URI uri(url);
+            Poco::Net::HTTPClientSession s(uri.getHost(), uri.getPort());
+            Poco::Net::HTTPRequest auth_request(Poco::Net::HTTPRequest::HTTP_GET, uri.toString());
+            auth_request.setVersion(Poco::Net::HTTPMessage::HTTP_1_1);
+            auth_request.setContentType("application/json");
+            auth_request.setCredentials(schema, base64);
+            auth_request.setProxyCredentials(schema, base64);
+            auth_request.set("Accept", "application/json");
+            auth_request.setKeepAlive(true);
+
+            s.sendRequest(auth_request);
+
+            Poco::Net::HTTPResponse auth_response;
+            std::istream &rs = s.receiveResponse(auth_response);
+
+            Poco::JSON::Parser parser;
+            auto json_response = parser.parse(rs).extract<Poco::JSON::Object::Ptr>();
+
+            if ( auth_response.getStatus() != Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK ) {
+                response.setStatus(auth_response.getStatus());
+                response.setContentType(auth_response.getContentType());
+                response.setReason(auth_response.getReason());
+                response.setChunkedTransferEncoding(auth_response.getChunkedTransferEncoding());
+
+                Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
+                root->set("type", json_response->get("type"));
+                root->set("status", json_response->get("status"));
+                root->set("detail", json_response->get("detail"));
+                root->set("instance", json_response->get("instance"));
+                std::ostream &ostr = response.send();
+                Poco::JSON::Stringifier::stringify(root, ostr);
+
+            }
+
+            request_sender_role = database::UserRole{ json_response->get("user_role").convert<std::string>() };
+
         }
 
         /* Проверка доступа к запросу. */
-        if ( request_sender.GetRole() < database::UserRole::User ) {
+        if ( request_sender_role < database::UserRole::User ) {
             SetPermissionDeniedResponse(response, "User does not have privileges for this action");
             return;
         }
@@ -117,107 +124,6 @@ namespace handler {
         response.setContentType("application/json");
         std::ostream &ostr = response.send();
         Poco::JSON::Stringifier::stringify(arr, ostr);
-    }
-
-
-    /**
-     * @brief Заполнение BadRequest(400) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void SearchHandler::SetBadRequestResponse(HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_BAD_REQUEST);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/bad_request");
-        root->set("title", "Bad request error");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_BAD_REQUEST);
-        root->set("detail", description);
-        root->set("instance", "/search");
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-    }
-
-    /**
-     * @brief Заполнение Unauthorized(401) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void SearchHandler::SetUnauthorizedResponse(Poco::Net::HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/unauthorized_error");
-        root->set("title", "User unauthorized.");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_UNAUTHORIZED);
-        root->set("detail", description);
-        root->set("instance", "/search");
-
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-    }
-
-    /**
-     * @brief Заполнение Forbidden(403) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void
-    SearchHandler::SetPermissionDeniedResponse(Poco::Net::HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_FORBIDDEN);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/forbidden_error");
-        root->set("title", "Permission denied.");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_FORBIDDEN);
-        root->set("detail", description);
-        root->set("instance", "/search");
-
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-    }
-
-    /**
-     * @brief Заполнение NotFound(404) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void SearchHandler::SetNotFoundResponse(Poco::Net::HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_NOT_FOUND);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/not_acceptable_error");
-        root->set("title", "Not found error.");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_NOT_FOUND);
-        root->set("detail", description);
-        root->set("instance", "/search");
-
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-    }
-
-    /**
-     * @brief Заполнение InternalError(500) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void SearchHandler::SetInternalErrorResponse(Poco::Net::HTTPServerResponse &response,
-                                               const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_INTERNAL_SERVER_ERROR);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/internal_error");
-        root->set("title", "Internal Server Error");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_INTERNAL_SERVER_ERROR);
-        root->set("detail", description);
-        root->set("instance", "/search");
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
     }
 
 } // namespace handler

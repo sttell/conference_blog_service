@@ -15,20 +15,44 @@ namespace handler {
 
     class IRequestHandler : public HTTPRequestHandler {
     public:
-        IRequestHandler(const std::string& format, HandlerType type);
+        IRequestHandler(std::string format, HandlerType type, std::string instance_name);
 
     public:
 
         virtual void handleRequest(HTTPServerRequest &request, HTTPServerResponse &response) = 0;
 
-        HandlerType GetType() const noexcept;
+        [[nodiscard]] HandlerType GetType() const noexcept;
 
     protected:
+
+        std::string& Instance() noexcept;
+
         std::string& GetFormat() noexcept;
+
+        /* 400 */
+        void SetBadRequestResponse(HTTPServerResponse& response, const std::string& description);
+
+        /* 401 */
+        void SetUnauthorizedResponse(HTTPServerResponse& response, const std::string& description);
+
+        /* 403 */
+        void SetPermissionDeniedResponse(HTTPServerResponse& response, const std::string& description);
+
+        /* 404 */
+        void SetNotFoundResponse(HTTPServerResponse& response, const std::string& description);
+
+        /* 406 */
+        void SetNotAcceptableResponse(HTTPServerResponse& response, const std::string& description);
+
+        /* 500 */
+        void SetInternalErrorResponse(HTTPServerResponse& response, const std::string& description);
+
 
     private:
         std::string format_;
         HandlerType type_;
+        std::string instance_;
+
     };
 
 

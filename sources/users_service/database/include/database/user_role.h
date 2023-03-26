@@ -20,6 +20,7 @@ namespace database {
         constexpr operator Type() const noexcept { return type_; }
 
         constexpr bool operator==(const UserRole::Type& rhs) { return type_ == rhs; }
+        constexpr bool operator< (const UserRole::Type& rhs) { return type_ <  rhs; }
         constexpr bool operator==(const UserRole& rhs) { return type_ == rhs.type_; }
         constexpr bool operator!=(const UserRole& rhs) { return type_ != rhs.type_; }
         constexpr bool operator< (const UserRole& rhs) { return type_ <  rhs.type_; }

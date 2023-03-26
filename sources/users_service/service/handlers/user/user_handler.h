@@ -22,19 +22,7 @@ namespace handler {
 
         void HandleUserRoleUpdateRequest(HTTPServerRequest& request, HTTPServerResponse& response);
 
-    private:
-        void SetBadRequestResponse(HTTPServerResponse& response, const std::string& description);
-
-        void SetUnauthorizedResponse(HTTPServerResponse& response, const std::string& description);
-
-        void SetPermissionDeniedResponse(HTTPServerResponse& response, const std::string& description);
-
-        void SetNotFoundResponse(HTTPServerResponse& response, const std::string& description);
-
-        void SetNotAcceptableResponse(HTTPServerResponse& response, const std::string& description);
-
-        void SetInternalErrorResponse(HTTPServerResponse& response, const std::string& description);
-
+        std::optional<std::string> AuthRequest(HTTPServerRequest& request, HTTPServerResponse& response);
 
     };
 

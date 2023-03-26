@@ -2,6 +2,7 @@
 
 #include <Poco/JSON/Object.h>
 #include <Poco/Net/HTMLForm.h>
+#include <Poco/Base64Decoder.h>
 
 #include "database/database.h"
 #include "database/user.h"
@@ -11,10 +12,32 @@
 
 using Poco::Net::HTMLForm;
 
+namespace {
+
+    /**
+     * @brief Разделение строки на подстроки по разделяющему символу
+     * @param str исходная строка
+     * @param delimiter разделитель
+     * @return вектор подстрок разделенных по delimiter
+     */
+    std::vector<std::string> SplitString(const std::string& str, const std::string& delimiter=" ") {
+        std::string str_copy = str;
+        size_t pos;
+        std::vector<std::string> tokens;
+        while ((pos = str_copy.find(delimiter)) != std::string::npos) {
+            tokens.push_back(str_copy.substr(0, pos));
+            str_copy.erase(0, pos + delimiter.length());
+        }
+        tokens.push_back(str_copy);
+        return tokens;
+    }
+
+} // namespace [ functions ]
+
 namespace handler {
 
-    AuthHandler::AuthHandler(const std::string &format) : IRequestHandler(format,
-                                                                              HandlerType::Search) { /* Empty */ }
+    AuthHandler::AuthHandler(const std::string &format) :
+        IRequestHandler(format, HandlerType::Search, "/auth") { /* Empty */ }
 
     void AuthHandler::handleRequest([[maybe_unused]]Poco::Net::HTTPServerRequest &request,
                                       Poco::Net::HTTPServerResponse &response) {
@@ -37,93 +60,57 @@ namespace handler {
     void
     AuthHandler::HandleGetRequest(Poco::Net::HTTPServerRequest &request, Poco::Net::HTTPServerResponse &response) {
 
-        HTMLForm form(request);
-        if (!(form.has("login") && form.has("password"))) {
-            SetBadRequestResponse(response, "Wrong request data.");
-        }
-        std::string login    = form.get("login");
-        std::string password = form.get("password");
+        database::User request_sender;
 
-        auto user = database::User::AuthUser(login, password);
-        if ( !user.has_value() ) {
-            SetNotFoundResponse(response, "User not found.");
+        if ( request.hasCredentials() ) {
+
+            std::string scheme;
+            std::string base64;
+            request.getCredentials(scheme, base64);
+
+            if ( scheme != "Basic" ) {
+                SetBadRequestResponse(response, "Unsupported authorization scheme.");
+                return;
+            }
+
+            std::stringstream decode_stream;
+            decode_stream << base64;
+            Poco::Base64Decoder base64_decoder{decode_stream};
+
+            std::string decoded;
+            base64_decoder >> decoded;
+
+            auto credentials = SplitString(decoded, ":");
+            if ( credentials.size() != 2 ) {
+                SetBadRequestResponse(response, "Invalid auth credentials.");
+                return;
+            }
+            auto user = database::User::AuthUser(credentials[0], credentials[1]);
+            if ( user.has_value() ) {
+                request_sender = user.value();
+            } else {
+                SetNotFoundResponse(response, "Invalid login or password.");
+                return;
+            }
+        } else {
+            SetUnauthorizedResponse(response, "User is unauthorized.");
             return;
         }
 
-        response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
         response.setChunkedTransferEncoding(true);
         response.setContentType("application/json");
-
-        Poco::JSON::Object object;
         Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
         root->set("type", "/success");
         root->set("title", "OK");
         root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_OK);
         root->set("instance", "/user");
-        root->set("id", std::to_string(user->GetID()));
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-
-    }
-
-
-    /**
-     * @brief Заполнение BadRequest(400) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void AuthHandler::SetBadRequestResponse(HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_BAD_REQUEST);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/bad_request");
-        root->set("title", "Bad request error");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_BAD_REQUEST);
-        root->set("detail", description);
-        root->set("instance", "/auth");
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
-    }
-
-    /**
-     * @brief Заполнение NotFound(404) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void AuthHandler::SetNotFoundResponse(Poco::Net::HTTPServerResponse &response, const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_NOT_FOUND);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/not_acceptable_error");
-        root->set("title", "Not found error.");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_NOT_FOUND);
-        root->set("detail", description);
-        root->set("instance", "/auth");
+        root->set("id", std::to_string(request_sender.GetID()));
+        root->set("user_role", request_sender.GetRole().ToString());
 
         std::ostream &ostr = response.send();
         Poco::JSON::Stringifier::stringify(root, ostr);
-    }
 
-    /**
-     * @brief Заполнение InternalError(500) формы ответа
-     * @param response HTML ответ для записи.
-     * @param description - описание ошибки.
-     */
-    void AuthHandler::SetInternalErrorResponse(Poco::Net::HTTPServerResponse &response,
-                                                 const std::string &description) {
-        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_INTERNAL_SERVER_ERROR);
-        response.setChunkedTransferEncoding(true);
-        response.setContentType("application/json");
-        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-        root->set("type", "/errors/internal_error");
-        root->set("title", "Internal Server Error");
-        root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_INTERNAL_SERVER_ERROR);
-        root->set("detail", description);
-        root->set("instance", "/auth");
-        std::ostream &ostr = response.send();
-        Poco::JSON::Stringifier::stringify(root, ostr);
     }
 
 
