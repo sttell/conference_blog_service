@@ -9,7 +9,7 @@
 
 namespace {
 
-    const std::string kAuthServer = "http://127.0.0.1:8080/auth";
+    const std::string kAuthServer = "http://users_service:8080/auth";
 
 } // namespace constants
 
