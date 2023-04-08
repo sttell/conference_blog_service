@@ -282,7 +282,7 @@ components:
           type: string
         last_name:
           type: string
-        second_name:
+        middle_name:
           type: string
         email:
           type: string

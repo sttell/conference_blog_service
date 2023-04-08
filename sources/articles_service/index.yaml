@@ -1,0 +1,215 @@
+oopenapi: '3.0.0'
+info:
+  version: '1.0.0'
+  title: 'Conference site server API'
+  description: API
+
+servers:
+  - url: http://localhost:8081
+    description: Сервис управления докладами
+
+paths:
+  /article:
+    post:
+      summary: Добавление нового доклада
+      parameters:
+        - name: title
+          description: Название доклада
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: description
+          description: Краткое описание доклада
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: content
+          description: Полный текст доклада
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_link
+          description: Ссылка на внешний источник относящийся к докладу
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ID добавленного доклада
+          content:
+            application/json:
+              schema:
+                type: integer
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Получить полное описание доклада по ID
+      parameters:
+        - name: id
+          description: ID доклада
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Информация о докладе и его состав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/article'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Доклад не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Удаление доклада
+      parameters:
+        - name: id
+          description: ID доклада
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ID удаленного доклада
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/article_id'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Отказано в доступе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Доклад не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /search:
+    get:
+      summary: Получить список докладов
+      response:
+        '200':
+          description: Список ID всех существующих в системе докладов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/articles_id'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    article_id:
+      description: Уникальный идентификатор доклада
+      type: integer
+    article:
+      description: Описание доклада и его текст
+      type: object
+      required:
+        - id
+        - consumer_id
+        - title
+        - description
+        - text
+        - create_date
+      properties:
+        id:
+          $ref: '#/components/schemas/article_id'
+        consumer_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        text:
+          type: string
+        create_date:
+          type: string
+    articles_id:
+      type: array
+      items:
+        $ref: '#/components/schemas/article_id'
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Сообщение о ошибке
+          type: string
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
