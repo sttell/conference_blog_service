@@ -11,4 +11,4 @@ RUN git clone https://github.com/sttell/conference_blog_service.git -b main && \
     sudo ldconfig && \
     cd conference_blog_service/sources && mkdir build && cd build && cmake .. && make -j8
 
-ENTRYPOINT [ "/conference_blog_service/sources/build/articles_service/articles_service", "/conference_blog_service/sources/build/articles_service/articles_service_data/server_config.json" ]
+ENTRYPOINT [ "/conference_blog_service/sources/build/conference_service/conference_service", "/conference_blog_service/sources/build/conference_service/conference_service_data/server_config.json" ]

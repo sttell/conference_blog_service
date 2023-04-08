@@ -1,0 +1,191 @@
+openapi: '3.0.0'
+info:
+  version: '1.0.0'
+  title: 'Conference site server API'
+  description: API
+
+servers:
+  - url: http://localhost:8082
+    description: Сервис управления конференцией
+
+paths:
+  /conference:
+    post:
+      summary: Добавление нового доклада в конференцию
+      parameters:
+        - name: id
+          description: ID доклада
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ID записи о допуске доклада
+          content:
+            application/json:
+              schema:
+                type: integer
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Доступ запрещен. Недостаточно прав.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Доклад с данным ID не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Получить информацию о допуске доклада к конференции
+      parameters:
+        - name: id
+          description: ID доклада
+          in: query
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: Информация о докладе и метаданные добавления в конференцию
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/article'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Доклад с таким ID не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Удаление доклада из конференции
+      parameters:
+        - name: id
+          description: ID доклада
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ID удаленного доклада
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/article_id'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Отказано в доступе. Недостаточно прав.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Доклад с таким ID не допускаля к конференции либо не существует.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /search:
+    get:
+      summary: Получить список докладов допущенных к конференции
+      response:
+        '200':
+          description: Список информаций о докладах и метаданных добавления в конференцию
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/articles'
+        '401':
+          description: Требуется авторизация пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    article_id:
+      description: Уникальный идентификатор доклада
+      type: integer
+    article:
+      description: Информация о допущенном докладе
+      type: object
+      required:
+        - accept_id
+        - article_id
+        - acceptor_id
+        - accept_date
+      properties:
+        id:
+          $ref: '#/components/schemas/article_id'
+        article_id:
+          type: integer
+        acceptor_id:
+          type: integer
+        accept_date:
+          type: string
+    articles:
+      type: array
+      items:
+        $ref: '#/components/schemas/article'
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Сообщение о ошибке
+          type: string
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
