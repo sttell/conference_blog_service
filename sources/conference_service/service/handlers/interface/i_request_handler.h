@@ -3,6 +3,8 @@
 
 #include "handler_type.h"
 
+#include <optional>
+
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
