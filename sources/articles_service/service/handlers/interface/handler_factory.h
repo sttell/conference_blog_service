@@ -4,6 +4,7 @@
 #include "handler_type.h"
 #include "i_request_handler.h"
 #include <memory>
+#include <optional>
 
 namespace handler {
 
