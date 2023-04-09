@@ -12,6 +12,11 @@ namespace search_service { class DatabaseConfig; }
 
 namespace database {
 
+    struct ShardingHint {
+        std::string hint;
+        long shard_id;
+    };
+
     class Database{
     private:
         Database();
@@ -24,6 +29,10 @@ namespace database {
         bool IsConnected() const noexcept;
 
         Poco::Data::Session CreateSession();
+
+        static size_t GetMaxShard();
+        static ShardingHint UserShardingHint(const std::string& login);
+        static std::vector<ShardingHint> GetAllHints();
 
     private:
         bool is_connected_;

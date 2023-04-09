@@ -389,7 +389,7 @@ namespace handler {
 
         /* Проверка валидности формы */
         if ( !IsFormHasRequired(form, { "login", "role" }) ) {
-            SetBadRequestResponse(response, "Wrong request. Form must had id field.");
+            SetBadRequestResponse(response, "Wrong request. Form must had login and role fields.");
             return;
         }
 
