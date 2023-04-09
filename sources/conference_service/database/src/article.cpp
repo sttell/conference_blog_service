@@ -26,7 +26,7 @@ using Poco::Data::Statement;
 #define SELECT_ALL_ID_REQUEST \
     "SELECT id, article_id, acceptor_id, accept_date FROM " TABLE_NAME
 
-#define SELECT_BY_ID_REQUEST SELECT_ALL_ID_REQUEST " WHERE id=?"
+#define SELECT_BY_ID_REQUEST SELECT_ALL_ID_REQUEST " WHERE article_id=?"
 
 #define INSERT_ARTICLE_REQUEST \
     "INSERT INTO " TABLE_NAME " " \
