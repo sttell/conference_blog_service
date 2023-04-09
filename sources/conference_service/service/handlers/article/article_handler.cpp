@@ -184,15 +184,15 @@ namespace handler {
             return;
         }
 
-        long state_id = atol(form.get("id").c_str());
+        long article_id = atol(form.get("id").c_str());
 
-        auto article = database::Article::SearchByID(state_id);
+        auto article = database::Article::SearchByID(article_id);
         if ( !article.has_value() ) {
             SetNotFoundResponse(response, "Article not found.");
             return;
         }
 
-        bool is_success = database::Article::DeleteByID(state_id);
+        bool is_success = database::Article::DeleteByID(article->GetID());
         if ( !is_success ) {
             SetInternalErrorResponse(response, "Failed to delete article");
             return;

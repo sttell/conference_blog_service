@@ -133,7 +133,6 @@ services:
     depends_on:
       - users-service-db-node-ex01
       - users-service-db-node-ex02
-      - users-service-db-node-ex03
 
   articles_service:
     build:
