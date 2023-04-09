@@ -4,9 +4,12 @@
 
 #include <Poco/Data/MySQL/Connector.h>
 #include <Poco/Data/MySQL/MySQLException.h>
+#include <Poco/Data/RecordSet.h>
 #include <Poco/Data/SessionFactory.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Dynamic/Var.h>
+
+#include <future>
 
 using namespace Poco::Data::Keywords;
 using Poco::Data::Session;
@@ -62,6 +65,45 @@ using Poco::Data::Statement;
     "(first_name, last_name, middle_name, email, gender, login, password, role) " \
     "VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
 
+namespace {
+
+    class DB_ID_Index {
+        DB_ID_Index() = default;
+    public:
+
+        static DB_ID_Index FromExternID(long id) {
+            DB_ID_Index index{};
+            index.ext_id_ = id;
+            auto max_shards = database::Database::GetMaxShard();
+
+            index.shard_id_ = (id % max_shards == 0) ? 1 : 0;
+            index.db_id_ = (index.ext_id_ + (max_shards - index.shard_id_ - 1)) / max_shards;
+
+            return index;
+        }
+
+        static DB_ID_Index FromDBID(long id, size_t shard_id) {
+            DB_ID_Index index{};
+            index.db_id_ = id;
+            index.shard_id_ = shard_id;
+
+            auto max_shards = database::Database::GetMaxShard();
+            index.ext_id_ = max_shards * id - (max_shards - shard_id - 1);
+
+            return index;
+        }
+
+        size_t GetShard() const noexcept { return shard_id_; }
+        long   GetDBID() const noexcept { return db_id_; }
+        long   GetExternalID() const noexcept { return ext_id_;  }
+
+    private:
+        size_t shard_id_;
+        long db_id_;
+        long ext_id_;
+    };
+
+}
 
 namespace database {
 
@@ -125,9 +167,15 @@ namespace database {
 
     void User::Init() {
         try {
+
             Poco::Data::Session session = database::Database::Instance().CreateSession();
-            Statement create_stmt(session);
-            create_stmt << CREATE_TABLE_REQUEST, now;
+
+            for ( auto& hint : database::Database::GetAllHints() ) {
+                Statement create_stmt(session);
+                create_stmt << CREATE_TABLE_REQUEST << " " << hint.hint, now;
+
+                std::cout << "DB create statement send: " <<  create_stmt.toString() << std::endl;
+            }
         }
         catch (Poco::Data::MySQL::ConnectionException &e) {
             std::cout << "connection:" << e.what() << std::endl;
@@ -143,27 +191,35 @@ namespace database {
         try
         {
             Poco::Data::Session session = database::Database::Instance().CreateSession();
-            Statement select(session);
             std::vector<User> result;
 
             User user;
-            std::string role_str;
-            select << SELECT_USER_REQUEST,
-                    into(user.id_),
-                    into(user.first_name_),
-                    into(user.last_name_),
-                    into(user.middle_name_),
-                    into(user.email_),
-                    into(user.gender_),
-                    into(user.login_),
-                    into(user.password_),
-                    into(role_str),
-                    range(0, 1); //  iterate over result set one row at a time
+            std::string sharding_hint_prefix = " -- sharding:";
+            size_t num_hints = database::Database::GetMaxShard();
 
-            while (!select.done()) {
-                if (select.execute()) {
-                    user.Role() = UserRole(role_str);
-                    result.push_back(user);
+            for ( size_t hint = 0; hint < num_hints; hint++ ) {
+                std::string sharding_hint = sharding_hint_prefix + std::to_string(hint);
+                std::string select_str = SELECT_USER_REQUEST + sharding_hint;
+
+                Statement select(session);
+
+                std::string role_str;
+                select << select_str, into(user.id_),
+                        into(user.first_name_),
+                        into(user.last_name_),
+                        into(user.middle_name_),
+                        into(user.email_),
+                        into(user.gender_),
+                        into(user.login_),
+                        into(user.password_),
+                        into(role_str),
+                        range(0, 1); //  iterate over result set one row at a time
+
+                while (!select.done()) {
+                    if (select.execute()) {
+                        user.Role() = UserRole(role_str);
+                        result.push_back(user);
+                    }
                 }
             }
 
@@ -181,32 +237,61 @@ namespace database {
 
     std::vector<User> User::Search(std::string first_name, std::string last_name) {
         try {
-            Poco::Data::Session session = database::Database::Instance().CreateSession();
-            Statement select(session);
+
             std::vector<User> result;
-            User info;
 
-            std::string role_str;
-            first_name += "%";
-            last_name += "%";
-            select << SELECT_BY_MASK_REQUEST,
-                    into(info.id_),
-                    into(info.first_name_),
-                    into(info.last_name_),
-                    into(info.middle_name_),
-                    into(info.email_),
-                    into(info.gender_),
-                    into(role_str),
-                    use(first_name),
-                    use(last_name),
-                    range(0, 1); //  iterate over result set one row at a time
+            std::vector<ShardingHint> hints = database::Database::GetAllHints();
 
-            while (!select.done()) {
-                if (select.execute()) {
-                    info.Role() = UserRole(role_str);
-                    result.push_back(info);
-                }
+            std::vector<std::future<std::vector<User>>> futures;
+
+            for ( const auto& hint : hints ) {
+
+                auto handle = std::async(std::launch::async, [first_name, last_name, hint]() mutable -> std::vector<User>{
+                    std::vector<User> result;
+
+                    Poco::Data::Session session = database::Database::Instance().CreateSession();
+                    Statement select(session);
+
+                    std::string select_req = SELECT_BY_MASK_REQUEST;
+                    select_req += hint.hint;
+
+                    first_name += "%";
+                    last_name += "%";
+
+                    User user;
+                    std::string role_str;
+                    select << select_req,
+                            into(user.id_),
+                            into(user.first_name_),
+                            into(user.last_name_),
+                            into(user.middle_name_),
+                            into(user.email_),
+                            into(user.gender_),
+                            into(role_str),
+                            use(first_name),
+                            use(last_name),
+                            range(0, 1);
+
+                    select.execute();
+
+                    while (!select.done()) {
+                        if (select.execute()) {
+                            user.Role() = UserRole(role_str);
+                            user.ID() = DB_ID_Index::FromDBID(user.id_, hint.shard_id).GetExternalID();
+                            result.push_back(user);
+                        }
+                    }
+                    return result;
+                });
+
+                futures.emplace_back(std::move(handle));
             }
+
+            for ( std::future<std::vector<User>>& res : futures ) {
+                std::vector<User> v = res.get();
+                std::copy(std::begin(v), std::end(v), std::back_inserter(result));
+            }
+
             return result;
         }
 
@@ -227,8 +312,14 @@ namespace database {
 
             User info;
 
+            auto id_index = DB_ID_Index::FromExternID(id);
+            auto internal_id = id_index.GetDBID();
+            auto shard_id = id_index.GetShard();
+
+            std::string query = SELECT_BY_ID_REQUEST + std::string(" -- sharding:") + std::to_string(shard_id);
+
             std::string role_str;
-            select << SELECT_BY_ID_REQUEST,
+            select << query,
                     into(info.id_),
                     into(info.first_name_),
                     into(info.last_name_),
@@ -236,13 +327,13 @@ namespace database {
                     into(info.email_),
                     into(info.gender_),
                     into(role_str),
-                    use(id); //  iterate over result set one row at a time
+                    use(internal_id); //  iterate over result set one row at a time
 
 
             size_t selected_rows = select.execute();
-
             if ( selected_rows > 0 ) {
                 info.Role() = UserRole(role_str);
+                info.ID() = id_index.GetExternalID();
                 return info;
             }
 
@@ -261,30 +352,53 @@ namespace database {
 
     std::optional<User> User::SearchByLogin(std::string login) {
         try {
-            Poco::Data::Session session = database::Database::Instance().CreateSession();
-            Statement select(session);
+            std::vector<ShardingHint> hints = database::Database::GetAllHints();
 
-            User info;
+            std::vector<std::future<std::optional<User>>> futures;
 
-            std::string role_str;
-            select << SELECT_BY_LOGIN_REQUEST,
-                    into(info.id_),
-                    into(info.first_name_),
-                    into(info.last_name_),
-                    into(info.middle_name_),
-                    into(info.email_),
-                    into(info.gender_),
-                    into(role_str),
-                    use(login),
-                    range(0, 1); //  iterate over result set one row at a time
+            for ( const ShardingHint& hint : hints ) {
 
+                auto handle = std::async(std::launch::async, [login, hint]() mutable -> std::optional<User> {
 
-            size_t selected_rows = select.execute();
+                    Poco::Data::Session session = database::Database::Instance().CreateSession();
+                    Statement select(session);
 
-            if ( selected_rows  ) {
-                info.Role() = UserRole(role_str);
-                std::cout << "User with login " << login << " found with ID " << info.id_ << std::endl;
-                return info;
+                    std::string select_req = SELECT_BY_LOGIN_REQUEST;
+                    select_req += hint.hint;
+
+                    User user;
+                    std::string role_str;
+                    select << select_req,
+                            into(user.id_),
+                            into(user.first_name_),
+                            into(user.last_name_),
+                            into(user.middle_name_),
+                            into(user.email_),
+                            into(user.gender_),
+                            into(role_str),
+                            use(login),
+                            range(0, 1);
+
+                    size_t selected_rows = select.execute();
+                    if ( selected_rows > 0 ) {
+                        auto external_id = DB_ID_Index::FromDBID(user.id_, hint.shard_id).GetExternalID();
+
+                        user.Role() = UserRole(role_str);
+                        user.ID() = external_id;
+                        std::cout << "User with login " << login << " found with ID " << user.id_ << std::endl;
+                        return user;
+                    }
+                    return {};
+                });
+
+                futures.emplace_back(std::move(handle));
+            }
+
+            for ( std::future<std::optional<User>>& res : futures ) {
+                std::optional<User> user_opt = res.get();
+                if ( user_opt.has_value() ) {
+                    return user_opt;
+                }
             }
 
             std::cout << "User with login " << login << " not found " << std::endl;
@@ -307,7 +421,11 @@ namespace database {
             Statement update(session);
 
             std::string new_role_str = new_role.ToString();
-            update << UPDATE_ROLE_REQUEST,
+            ShardingHint sharding_hint = database::Database::UserShardingHint(login);
+
+            std::string query = UPDATE_ROLE_REQUEST + std::string(" ") + sharding_hint.hint;
+
+            update << query,
                       use(new_role_str),
                       use(login);
 
@@ -332,28 +450,56 @@ namespace database {
 
     std::optional<User> User::AuthUser(std::string login, std::string password) {
         try {
-            Poco::Data::Session session = database::Database::Instance().CreateSession();
-            Statement select(session);
 
-            User info;
+            std::vector<ShardingHint> hints = database::Database::GetAllHints();
 
-            std::string role_str;
-            select << SELECT_BY_CREDENTIALS_REQUEST,
-                    into(info.id_),
-                    into(info.first_name_),
-                    into(info.last_name_),
-                    into(info.middle_name_),
-                    into(info.email_),
-                    into(info.gender_),
-                    into(role_str),
-                    use(login),
-                    use(password); //  iterate over result set one row at a time
+            std::vector<std::future<std::optional<User>>> futures;
 
-            size_t selected_rows = select.execute();
-            if ( selected_rows > 0 ) {
-                info.Role() = UserRole(role_str);
-                return info;
+            for ( const ShardingHint& hint : hints ) {
+
+                auto handle = std::async(std::launch::async, [login, password, hint]() mutable -> std::optional<User> {
+
+                    Poco::Data::Session session = database::Database::Instance().CreateSession();
+                    Statement select(session);
+
+                    std::string select_req = SELECT_BY_CREDENTIALS_REQUEST;
+                    select_req += hint.hint;
+
+                    User user;
+                    std::string role_str;
+                    select << select_req,
+                            into(user.id_),
+                            into(user.first_name_),
+                            into(user.last_name_),
+                            into(user.middle_name_),
+                            into(user.email_),
+                            into(user.gender_),
+                            into(role_str),
+                            use(login),
+                            use(password);
+
+                    size_t selected_rows = select.execute();
+                    if ( selected_rows > 0 ) {
+                        auto external_id = DB_ID_Index::FromDBID(user.id_, hint.shard_id).GetExternalID();
+
+                        user.Role() = UserRole(role_str);
+                        user.ID() = external_id;
+
+                        return user;
+                    }
+                    return {};
+                });
+
+                futures.emplace_back(std::move(handle));
             }
+
+            for ( std::future<std::optional<User>>& res : futures ) {
+                std::optional<User> user_opt = res.get();
+                if ( user_opt.has_value() ) {
+                    return user_opt;
+                }
+            }
+
             return { };
         }
 
@@ -386,9 +532,11 @@ namespace database {
         {
             Poco::Data::Session session = database::Database::Instance().CreateSession();
             Poco::Data::Statement insert(session);
+            ShardingHint sharding_hint = database::Database::UserShardingHint(login_);
+            std::string insert_req = std::string(INSERT_USER_REQUEST) + " " + sharding_hint.hint;
 
             std::string role_str = role_.ToString();
-            insert << INSERT_USER_REQUEST,
+            insert << insert_req,
                     use(first_name_),
                     use(last_name_),
                     use(middle_name_),
@@ -398,10 +546,11 @@ namespace database {
                     use(password_),
                     use(role_str);
 
-            insert.execute();
+            size_t changes = insert.execute();
+            if ( changes == 0 ) return;
 
             Poco::Data::Statement select(session);
-            select << "SELECT LAST_INSERT_ID()",
+            select << "SELECT LAST_INSERT_ID() " + sharding_hint.hint,
                     into(id_),
                     range(0, 1); //  iterate over result set one row at a time
 
@@ -409,7 +558,10 @@ namespace database {
                 select.execute();
             }
 
-            std::cout << "inserted:" << id_ << std::endl;
+            auto extern_index = DB_ID_Index::FromDBID(id_, sharding_hint.shard_id);
+            id_ = extern_index.GetExternalID();
+            std::cout << "Inserted user with shard id " << sharding_hint.shard_id << " DB IDX: " << extern_index.GetDBID();
+            std::cout << " External ID: " << id_ << std::endl;
         }
         catch (Poco::Data::MySQL::ConnectionException &e)
         {

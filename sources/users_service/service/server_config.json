@@ -5,10 +5,10 @@
   },
   "database": {
     "from_env": false,
-    "host": "users-service-db-node-ex01",
-    "port": 3306,
-    "login": "admin",
-    "password": "admin",
+    "host": "users-service-proxy-sql",
+    "port": 6033,
+    "login": "stud",
+    "password": "stud",
     "database": "archdb"
   }
 }

@@ -48,4 +48,30 @@ namespace database{
         return Poco::Data::Session(pool_->get());
     }
 
+    size_t Database::GetMaxShard() {
+        return 2;
+    }
+
+    std::vector<ShardingHint> Database::GetAllHints() {
+        std::vector<ShardingHint> result;
+        for ( size_t i = 0; i < GetMaxShard(); i++ ) {
+            ShardingHint hint;
+            hint.hint = "-- sharding:" + std::to_string(i);
+            hint.shard_id = i;
+            result.push_back(hint);
+        }
+        return result;
+    }
+
+    ShardingHint Database::UserShardingHint(const std::string& login) {
+        const std::string& key = login;
+        size_t shard_num = std::hash<std::string>{}(key) % GetMaxShard();
+
+        ShardingHint result;
+        result.hint = "-- sharding:" + std::to_string(shard_num);
+        result.shard_id = shard_num;
+
+        return result;
+    }
+
 }

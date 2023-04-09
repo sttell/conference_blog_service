@@ -3,14 +3,14 @@ version: '2.1'
 services:
   users-service-db-node-ex01:
     build:
-      context: ./sources/users_service/mariadb
+      context: ./mysql/users_service_db
       dockerfile: Dockerfile
     container_name: users-service-db-node-ex01
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: archdb
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: admin
+      MYSQL_USER: stud
+      MYSQL_PASSWORD: stud
       MYSQL_ROOT_PASSWORD: '1'
     command: >
       --sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
@@ -20,16 +20,58 @@ services:
       - arch-network
     ports:
       - 3360:3306
-    healthcheck:
-      test: "/usr/bin/mysql --user=admin --password=admin --execute \"SHOW DATABASES;\""
-      timeout: 20s
-      retries: 5
     volumes:
       - users-service-db-node-ex01-data:/var/lib/mysql
 
+  users-service-db-node-ex02:
+    build:
+      context: ./mysql/users_service_db
+      dockerfile: Dockerfile
+    container_name: users-service-db-node-ex02
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: archdb
+      MYSQL_USER: stud
+      MYSQL_PASSWORD: stud
+      MYSQL_ROOT_PASSWORD: '1'
+    command: >
+      --sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
+      --general-log=ON
+      --log-queries-not-using-indexes=ON
+    networks:
+      - arch-network
+    ports:
+      - 3361:3306
+    volumes:
+      - users-service-db-node-ex02-data:/var/lib/mysql
+
+  users-service-proxy-sql:
+    build:
+      context: proxysql
+      dockerfile: Dockerfile
+    container_name: users-service-proxysql
+    command: >
+      --initial
+    volumes:
+      - users-service-proxysql-data:/var/lib/proxysql
+    healthcheck:
+      test: "/usr/bin/mysql --user=stud --password=stud --execute \"SHOW DATABASES;\""
+      timeout: 20s
+      retries: 5
+    depends_on:
+      - users-service-db-node-ex01
+      - users-service-db-node-ex02
+    networks:
+      - arch-network
+    ports:
+      # MySQL port
+      - "6033:6033"
+      # Admin port
+      - "6032:6032"
+
   articles-service-db-node-ex01:
     build:
-      context: ./sources/articles_service/mariadb
+      context: ./mysql/articles_service_db
       dockerfile: Dockerfile
     container_name: articles-service-db-node-ex01
     restart: unless-stopped
@@ -45,7 +87,7 @@ services:
     networks:
       - arch-network
     ports:
-      - 3361:3306
+      - 3371:3306
     healthcheck:
       test: "/usr/bin/mysql --user=admin --password=admin --execute \"SHOW DATABASES;\""
       timeout: 20s
@@ -55,7 +97,7 @@ services:
 
   conference-service-db-node-ex01:
     build:
-      context: ./sources/conference_service/mariadb
+      context: ./mysql/conference_service_db
       dockerfile: Dockerfile
     container_name: conference-service-db-node-ex01
     restart: unless-stopped
@@ -71,7 +113,7 @@ services:
     networks:
       - arch-network
     ports:
-      - 3362:3306
+      - 3381:3306
     healthcheck:
       test: "/usr/bin/mysql --user=admin --password=admin --execute \"SHOW DATABASES;\""
       timeout: 20s
@@ -81,7 +123,7 @@ services:
 
   users_service:
     build:
-      context: sources/users_service
+      context: users_service
       dockerfile: Dockerfile
     container_name: users_service
     ports:
@@ -89,12 +131,13 @@ services:
     networks:
       - arch-network
     depends_on:
-      users-service-db-node-ex01:
-        condition: service_healthy
+      - users-service-db-node-ex01
+      - users-service-db-node-ex02
+      - users-service-db-node-ex03
 
   articles_service:
     build:
-      context: sources/articles_service
+      context: articles_service
       dockerfile: Dockerfile
     container_name: articles_service
     ports:
@@ -107,7 +150,7 @@ services:
 
   conference_service:
     build:
-      context: sources/conference_service
+      context: conference_service
       dockerfile: Dockerfile
     container_name: conference_service
     ports:
@@ -120,6 +163,8 @@ services:
 
 volumes:
   users-service-db-node-ex01-data:
+  users-service-db-node-ex02-data:
+  users-service-proxysql-data:
   articles-service-db-node-ex01-data:
   conference-service-db-node-ex01-data:
 
