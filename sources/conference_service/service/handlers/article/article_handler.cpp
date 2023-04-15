@@ -207,7 +207,7 @@ namespace handler {
         root->set("title", "OK");
         root->set("status", Poco::Net::HTTPResponse::HTTP_REASON_OK);
         root->set("instance", "/article");
-        root->set("id", state_id);
+        root->set("id", article_id);
 
         std::ostream &ostr = response.send();
         Poco::JSON::Stringifier::stringify(root, ostr);
