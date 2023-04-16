@@ -69,6 +69,38 @@ namespace {
         return is_found;
     }
 
+    bool IsValidEmailSimple( const std::string& email ) {
+        if (email.find('@') == std::string::npos) {
+            return false;
+        }
+
+        if (email.find(' ') != std::string::npos) {
+            return false;
+        }
+
+        if (email.find('\t') != std::string::npos) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool IsValidNameSimple( const std::string& name ) {
+        if (name.length() < 3) {
+            return false;
+        }
+
+        if (name.find(' ') != std::string::npos) {
+            return false;
+        }
+
+        if (name.find('\t') != std::string::npos) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * @brief Проверка валидности указанного пола.
      * @details допустимые варианты - male, female.
@@ -225,34 +257,37 @@ namespace handler {
         }
 
         /* Проверка валидности данных переданных с клиента */
-        if ( !IsValidName(first_name) ) {
+        if ( !IsValidNameSimple(first_name) ) {
             SetBadRequestResponse(response, "Wrong first name format.");
             return;
         }
-        if ( !IsValidName(last_name)  ) {
+        if ( !IsValidNameSimple(last_name)  ) {
             SetBadRequestResponse(response, "Wrong last name format.");
             return;
         }
-        if ( !IsValidName(middle_name) ) {
+        if ( !IsValidNameSimple(middle_name) ) {
             SetBadRequestResponse(response, "Wrong middle name format.");
             return;
         }
-        if ( !IsValidEmail(email) ) {
+        if ( !IsValidEmailSimple(email) ) {
             SetBadRequestResponse(response, "Wrong email format.");
             return;
         }
-        if ( !IsValidGender(gender) ) {
-            SetBadRequestResponse(response, R"(Wrong gender format. Expected "male" or "female")");
-            return;
-        }
-        if ( !IsValidLogin(login) ) {
-            SetBadRequestResponse(response, "Wrong login format.");
-            return;
-        }
-        if ( !IsValidPassword(password) ) {
-            SetBadRequestResponse(response, "Wrong password format.");
-            return;
-        }
+        /**
+         * Temporal commented.
+         */
+//        if ( !IsValidGender(gender) ) {
+//            SetBadRequestResponse(response, R"(Wrong gender format. Expected "male" or "female")");
+//            return;
+//        }
+//        if ( !IsValidLogin(login) ) {
+//            SetBadRequestResponse(response, "Wrong login format.");
+//            return;
+//        }
+//        if ( !IsValidPassword(password) ) {
+//            SetBadRequestResponse(response, "Wrong password format.");
+//            return;
+//        }
 
         /* Создание пользователя */
         database::User user;
