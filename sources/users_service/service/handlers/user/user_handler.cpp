@@ -14,9 +14,9 @@
 #include <iostream>
 #include <regex>
 
-#define EMAIL_REGEX "^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$"
+// #define EMAIL_REGEX "^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$"
 #define LOGIN_REGEX "^[a-z0-9_.]{3,16}$"
-#define PASSWORD_REGEX "(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\\s).*{8,200}$"
+// #define PASSWORD_REGEX "(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\\s).*{8,200}$"
 
 using Poco::Net::HTMLForm;
 
@@ -36,38 +36,38 @@ namespace {
         return is_condition_done;
     }
 
-    /**
-     * @brief Проверка имени на валидность.
-     * @details Допустимый формат имени - символы A-Z в любом из регистров
-     * @param name - имя/фамилия/отчество человека
-     * @return true - если имя валидно, иначе - false
-     */
-    bool IsValidName( const std::string& name ) {
-
-        return std::all_of(name.begin(), name.end(), [](const char& sym){
-            return (sym >= 'A' && sym <= 'Z') || (sym >= 'a' && sym <= 'z');
-        });
-
-    }
-
-    /**
-     * @brief Проверка валидности E-Mail адреса
-     * @details валидный формат email - *****@****.***
-     * @param email - Email address
-     * @return true - если формат валидный, иначе - false
-     */
-    bool IsValidEmail( const std::string& email ) {
-
-        static const std::regex main_rx(EMAIL_REGEX);
-
-        bool is_contain_spaces = std::any_of(email.begin(), email.end(), [](const char& sym){ return sym == ' '; });
-        if ( is_contain_spaces ) return false;
-
-        std::smatch m;
-        bool is_found = std::regex_search(email, m, main_rx);
-
-        return is_found;
-    }
+//    /**
+//     * @brief Проверка имени на валидность.
+//     * @details Допустимый формат имени - символы A-Z в любом из регистров
+//     * @param name - имя/фамилия/отчество человека
+//     * @return true - если имя валидно, иначе - false
+//     */
+//    bool IsValidName( const std::string& name ) {
+//
+//        return std::all_of(name.begin(), name.end(), [](const char& sym){
+//            return (sym >= 'A' && sym <= 'Z') || (sym >= 'a' && sym <= 'z');
+//        });
+//
+//    }
+//
+//    /**
+//     * @brief Проверка валидности E-Mail адреса
+//     * @details валидный формат email - *****@****.***
+//     * @param email - Email address
+//     * @return true - если формат валидный, иначе - false
+//     */
+//    bool IsValidEmail( const std::string& email ) {
+//
+//        static const std::regex main_rx(EMAIL_REGEX);
+//
+//        bool is_contain_spaces = std::any_of(email.begin(), email.end(), [](const char& sym){ return sym == ' '; });
+//        if ( is_contain_spaces ) return false;
+//
+//        std::smatch m;
+//        bool is_found = std::regex_search(email, m, main_rx);
+//
+//        return is_found;
+//    }
 
     bool IsValidEmailSimple( const std::string& email ) {
         if (email.find('@') == std::string::npos) {
@@ -100,17 +100,17 @@ namespace {
 
         return true;
     }
-
-    /**
-     * @brief Проверка валидности указанного пола.
-     * @details допустимые варианты - male, female.
-     * @param gender - пол
-     * @return true - если пол валидный, иначе - false
-     */
-    bool IsValidGender( const std::string& gender ) {
-        if ( gender == "male" || gender == "female" ) return true;
-        return false;
-    }
+//
+//    /**
+//     * @brief Проверка валидности указанного пола.
+//     * @details допустимые варианты - male, female.
+//     * @param gender - пол
+//     * @return true - если пол валидный, иначе - false
+//     */
+//    bool IsValidGender( const std::string& gender ) {
+//        if ( gender == "male" || gender == "female" ) return true;
+//        return false;
+//    }
 
     /**
      * @brief Проверка валидности логина
@@ -130,22 +130,22 @@ namespace {
         return is_found;
     }
 
-    /**
-     * @brief Проверка валидности пароля пользователя.
-     * @param password пароль
-     * @return true - если пароль валидный, иначе - false
-     */
-    bool IsValidPassword( const std::string& password ) {
-        static const std::regex main_rx(PASSWORD_REGEX);
-
-        bool is_contain_spaces = std::any_of(password.begin(), password.end(), [](const char& sym){ return sym == ' '; });
-        if ( is_contain_spaces ) return false;
-
-        std::smatch m;
-        bool is_found = std::regex_search(password, m, main_rx);
-
-        return is_found;
-    }
+//    /**
+//     * @brief Проверка валидности пароля пользователя.
+//     * @param password пароль
+//     * @return true - если пароль валидный, иначе - false
+//     */
+//    bool IsValidPassword( const std::string& password ) {
+//        static const std::regex main_rx(PASSWORD_REGEX);
+//
+//        bool is_contain_spaces = std::any_of(password.begin(), password.end(), [](const char& sym){ return sym == ' '; });
+//        if ( is_contain_spaces ) return false;
+//
+//        std::smatch m;
+//        bool is_found = std::regex_search(password, m, main_rx);
+//
+//        return is_found;
+//    }
 
     /**
      * @brief Разделение строки на подстроки по разделяющему символу
