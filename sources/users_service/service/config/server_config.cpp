@@ -16,6 +16,9 @@ namespace {
     constexpr const char* const  kDefaultDB_Login = "admin";
     constexpr const char* const  kDefaultDB_Password = "admin";
     constexpr const char* const  kDefaultDB_Database = "archdb";
+    constexpr const char* const  kDefaultCachingIP = "0.0.0.0";
+    constexpr const unsigned int kDefaultCachingPort = 6379;
+    constexpr const unsigned int kDefaultCachingExpiration = 60;
 
 } // namespace [ Constants ]
 
@@ -109,6 +112,36 @@ namespace search_service {
 
 namespace search_service {
 
+    CachingConfig::CachingConfig() noexcept:
+            host_(kDefaultCachingIP),
+            port_(kDefaultCachingPort),
+            expiration_(kDefaultCachingExpiration) {}
+
+    CachingConfig::CachingConfig(Poco::JSON::Object &json_root) noexcept : CachingConfig() {
+
+        host_ = json_root.getValue<decltype(host_)>("host");
+        port_ = json_root.getValue<decltype(port_)>("port");
+        expiration_ = json_root.getValue<decltype(expiration_)>("expiration");
+
+    }
+
+    void CachingConfig::SetHost(const std::string& host) noexcept { host_ = host; }
+
+    void CachingConfig::SetPort(unsigned int port) noexcept { port_ = port; }
+
+    void CachingConfig::SetExpiration(unsigned int expiration) noexcept { expiration_ = expiration; }
+
+    std::string CachingConfig::GetHost() const noexcept { return host_; }
+
+    unsigned int CachingConfig::GetPort() const noexcept { return port_; }
+
+    unsigned int CachingConfig::GetExpiration() const noexcept { return expiration_; }
+
+} // namespace search_service
+
+
+namespace search_service {
+
     Config::Config(const std::string &path) :
         network_config_(nullptr), database_config_(nullptr) {
 
@@ -135,10 +168,18 @@ namespace search_service {
         } else {
             database_config_ = std::make_shared<DatabaseConfig>();
         }
+
+        if ( root->has("caching") ) {
+            caching_config_ = std::make_shared<CachingConfig>(*root->getObject("caching"));
+        } else {
+            caching_config_ = std::make_shared<CachingConfig>();
+        }
     }
 
     std::shared_ptr<NetworkConfig> Config::GetNetworkConfig() const noexcept { return network_config_; }
 
     std::shared_ptr<DatabaseConfig> Config::GetDatabaseConfig() const noexcept { return database_config_; }
+
+    std::shared_ptr<CachingConfig> Config::GetCachingConfig() const noexcept { return caching_config_; }
 
 } // namespace search_service

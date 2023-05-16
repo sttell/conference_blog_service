@@ -2,6 +2,7 @@
 
 #include "database/database.h"
 #include "database/user.h"
+#include "database/cache.h"
 
 #include <iostream>
 
@@ -35,6 +36,8 @@ namespace search_service {
             }
             config_ = std::make_shared<search_service::Config>(args[0]);
             auto network_config = config_->GetNetworkConfig();
+            auto caching_config = config_->GetCachingConfig();
+
             if ( !database::Database::Instance().IsConnected() ) {
                 database::Database::Instance().BindConfigure(config_->GetDatabaseConfig());
                 bool result = database::Database::Instance().TryConnect();
@@ -45,6 +48,11 @@ namespace search_service {
             }
 
             database::User::Init();
+            database::Cache::Get()->Init(
+                    caching_config->GetHost(),
+                    caching_config->GetPort(),
+                    caching_config->GetExpiration()
+            );
 
             ServerSocket svs(Poco::Net::SocketAddress(network_config->GetIP(), network_config->GetPort()));
             HTTPServer srv(new HTTPRequestFactory(DateTimeFormat::SORTABLE_FORMAT), svs, new HTTPServerParams);

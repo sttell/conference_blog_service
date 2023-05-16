@@ -14,6 +14,11 @@ namespace database {
     class User {
         friend class Database;
     public:
+        User() = default;
+        User(User&& user) = default;
+        User(const User& user) = default;
+        User& operator=(User&& user) = default;
+        User& operator=(const User& user) = default;
 
         static User FromJSON(const std::string & str);
 
@@ -46,10 +51,16 @@ namespace database {
         static std::optional<User> SearchByLogin(std::string login);
         static std::optional<User> ChangeRole(std::string login, UserRole new_role);
         static std::optional<User> AuthUser(std::string login, std::string password);
+        static std::optional<User> FromCacheByID(long id);
+
+        void SaveToCache();
 
         void InsertToDatabase();
 
         [[nodiscard]] Poco::JSON::Object::Ptr ToJSON() const;
+
+        std::string Serialize() const;
+        void Deserialize(const std::string&);
 
     private:
         long id_{-1};

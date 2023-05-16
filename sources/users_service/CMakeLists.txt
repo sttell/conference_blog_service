@@ -5,8 +5,10 @@ SET (EXECUTABLE_NAME ${PROJECT_NAME})
 
 project(${PROJECT_NAME} C CXX)
 
-SET (CMAKE_CXX_STANDARD 17)
-SET (CMAKE_CXX_STANDARD_REQUIRED ON)
+set (STD_CXX "c++17")
+set (REDISCPP_FLAGS "-DREDISCPP_HEADER_ONLY=ON")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall -std=${STD_CXX} ${REDISCPP_FLAGS}")
+set (CMAKE_CXX_FLAGS_RELEASE "-O3 -g0 -std=${STD_CXX} -Wall -DNDEBUG ${REDISCPP_FLAGS}")
 
 find_package(OpenSSL)
 find_package(Threads)
@@ -28,6 +30,7 @@ add_executable(${EXECUTABLE_NAME}
         database/src/database.cpp
         database/src/user.cpp
         database/src/user_role.cpp
+        database/src/cache.cpp
 
         service/config/path_validate.cpp
         service/config/server_config.cpp

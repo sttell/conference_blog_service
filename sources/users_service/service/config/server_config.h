@@ -54,6 +54,25 @@ namespace search_service {
         std::string database_;
     };
 
+    class CachingConfig {
+    public:
+        CachingConfig() noexcept;
+        explicit CachingConfig(Poco::JSON::Object& json_root) noexcept;
+
+        void SetHost(const std::string&) noexcept;
+        void SetPort(unsigned int) noexcept;
+        void SetExpiration(unsigned int) noexcept;
+
+        std::string GetHost() const noexcept;
+        unsigned int GetPort() const noexcept;
+        unsigned int GetExpiration() const noexcept;
+
+    private:
+        std::string host_;
+        unsigned int port_;
+        unsigned int expiration_;
+    };
+
     class Config {
     public:
         explicit Config(const std::string &path);
@@ -70,9 +89,12 @@ namespace search_service {
 
         [[nodiscard]] std::shared_ptr<DatabaseConfig> GetDatabaseConfig() const noexcept;
 
+        [[nodiscard]] std::shared_ptr<CachingConfig> GetCachingConfig() const noexcept;
+
     private:
         std::shared_ptr<NetworkConfig> network_config_;
         std::shared_ptr<DatabaseConfig> database_config_;
+        std::shared_ptr<CachingConfig> caching_config_;
     };
 
 } // namespace search_service

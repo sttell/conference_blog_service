@@ -5,10 +5,15 @@
   },
   "database": {
     "from_env": false,
-    "host": "users-service-proxy-sql",
+    "host": "0.0.0.0",
     "port": 6033,
     "login": "stud",
     "password": "stud",
     "database": "archdb"
+  },
+  "caching": {
+    "host": "0.0.0.0",
+    "port": 6379,
+    "expiration": 60
   }
 }

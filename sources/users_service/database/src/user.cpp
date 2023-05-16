@@ -11,6 +11,8 @@
 
 #include <future>
 
+#include "database/cache.h"
+
 using namespace Poco::Data::Keywords;
 using Poco::Data::Session;
 using Poco::Data::Statement;
@@ -415,6 +417,30 @@ namespace database {
         }
     }
 
+    std::optional<User> User::FromCacheByID(long id) {
+        std::optional<User> user;
+        try {
+            User user_obj;
+            if (database::Cache::Get()->Get(id, user_obj)) {
+                user = std::make_optional<User>(std::move(user_obj));
+            }
+
+        } catch (const std::exception& e) {
+            std::cerr << "Read: Cache exception: " << e.what() << std::endl;
+        }
+        return user;
+    }
+
+    void User::SaveToCache() {
+
+        try {
+            database::Cache::Get()->Put(this->id_, *this);
+        } catch (const std::exception& e) {
+            std::cerr << "Save: Cache exception: " << e.what() << std::endl;
+        }
+
+    }
+
     std::optional<User> User::ChangeRole(std::string login, database::UserRole new_role) {
         try {
             Poco::Data::Session session = database::Database::Instance().CreateSession();
@@ -573,6 +599,39 @@ namespace database {
 
             std::cout << "statement:" << e.what() << std::endl;
             throw;
+        }
+    }
+
+    std::string User::Serialize() const {
+        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
+
+        root->set("id", id_);
+        root->set("first_name", first_name_);
+        root->set("last_name", last_name_);
+        root->set("middle_name", middle_name_);
+        root->set("email", email_);
+        root->set("gender", gender_);
+        root->set("role", role_.ToString());
+
+        std::stringstream ss;
+        root->stringify(ss);
+        return ss.str();
+    }
+
+    void User::Deserialize(const std::string& serialized) {
+        Poco::JSON::Parser parser;
+        Poco::Dynamic::Var result = parser.parse(serialized);
+        Poco::JSON::Object::Ptr object = result.extract<Poco::JSON::Object::Ptr>();
+
+        this->ID()        = object->getValue<long>("id");
+        this->FirstName() = object->getValue<std::string>("first_name");
+        this->LastName()  = object->getValue<std::string>("last_name");
+        this->EMail()     = object->getValue<std::string>("email");
+        this->Gender()    = object->getValue<std::string>("gender");
+        this->Role()      = UserRole(object->getValue<std::string>("role"));
+
+        if ( object->has("middle_name") ) {
+            this->MiddleName() = object->getValue<std::string>("middle_name");
         }
     }
 

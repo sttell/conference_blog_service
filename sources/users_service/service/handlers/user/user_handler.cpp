@@ -10,6 +10,7 @@
 
 #include "database/user.h"
 #include "database/user_role.h"
+#include "database/cache.h"
 
 #include <iostream>
 #include <regex>
@@ -379,11 +380,17 @@ namespace handler {
         /* Если форма валидна, то обрабатываем */
         long id = atol(form.get("id").c_str());
 
-        /* Если пользователь найден, то возвращаем его данные */
-        auto user = database::User::SearchByID(id);
+        /* Проверка наличия в кэше */
+        std::optional<database::User> user = database::User::FromCacheByID(id);
+
         if ( !user.has_value() ) {
-            SetNotFoundResponse(response, "User with requested id not found.");
-            return;
+            std::cout << "Search by ID" << std::endl;
+            user = database::User::SearchByID(id);
+            if ( !user.has_value() ) {
+                SetNotFoundResponse(response, "User with requested id not found.");
+                return;
+            }
+            user->SaveToCache();
         }
 
         response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);

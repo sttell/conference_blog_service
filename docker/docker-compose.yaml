@@ -121,6 +121,17 @@ services:
     volumes:
       - conference-service-db-node-ex01-data:/var/lib/mysql
 
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel debug
+    networks:
+      - arch-network
+    volumes:
+      - cache:/data
+
   users_service:
     build:
       context: users_service
@@ -133,6 +144,7 @@ services:
     depends_on:
       - users-service-db-node-ex01
       - users-service-db-node-ex02
+      - cache
 
   articles_service:
     build:
@@ -166,6 +178,7 @@ volumes:
   users-service-proxysql-data:
   articles-service-db-node-ex01-data:
   conference-service-db-node-ex01-data:
+  cache:
 
 networks:
   arch-network:
