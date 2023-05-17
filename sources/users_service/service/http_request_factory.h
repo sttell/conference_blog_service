@@ -50,8 +50,6 @@ public:
 
     HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override {
 
-        std::cout << "request:" << request.getURI() << std::endl;
-
         try {
             return handler::HandlerFactory::Create(format_, request.getURI());
         } catch ( const exceptions::BadURI& e ) {

@@ -148,23 +148,23 @@ namespace {
 //        return is_found;
 //    }
 
-    /**
-     * @brief Разделение строки на подстроки по разделяющему символу
-     * @param str исходная строка
-     * @param delimiter разделитель
-     * @return вектор подстрок разделенных по delimiter
-     */
-    std::vector<std::string> SplitString(const std::string& str, const std::string& delimiter=" ") {
-        std::string str_copy = str;
-        size_t pos;
-        std::vector<std::string> tokens;
-        while ((pos = str_copy.find(delimiter)) != std::string::npos) {
-            tokens.push_back(str_copy.substr(0, pos));
-            str_copy.erase(0, pos + delimiter.length());
-        }
-        tokens.push_back(str_copy);
-        return tokens;
-    }
+//    /**
+//     * @brief Разделение строки на подстроки по разделяющему символу
+//     * @param str исходная строка
+//     * @param delimiter разделитель
+//     * @return вектор подстрок разделенных по delimiter
+//     */
+//    std::vector<std::string> SplitString(const std::string& str, const std::string& delimiter=" ") {
+//        std::string str_copy = str;
+//        size_t pos;
+//        std::vector<std::string> tokens;
+//        while ((pos = str_copy.find(delimiter)) != std::string::npos) {
+//            tokens.push_back(str_copy.substr(0, pos));
+//            str_copy.erase(0, pos + delimiter.length());
+//        }
+//        tokens.push_back(str_copy);
+//        return tokens;
+//    }
 
 } // namespace [ functions ]
 
@@ -339,37 +339,37 @@ namespace handler {
         database::User request_sender;
 
         /* Проверка авторизации. TODO: Вынести в отдельный обработчик запросов. */
-        if ( request.hasCredentials() ) {
+//        if ( request.hasCredentials() ) {
+//
+//            std::string scheme;
+//            std::string base64;
+//            request.getCredentials(scheme, base64);
+//
+//            std::stringstream decode_stream;
+//            decode_stream << base64;
+//            Poco::Base64Decoder base64_decoder{decode_stream};
+//
+//            std::string decoded;
+//            base64_decoder >> decoded;
+//
+//            auto credentials = SplitString(decoded, ":");
+//            auto user = database::User::AuthUser(credentials[0], credentials[1]);
+//            if ( user.has_value() ) {
+//                request_sender = user.value();
+//            } else {
+//                SetBadRequestResponse(response, "Invalid login or password.");
+//                return;
+//            }
+//        } else {
+//            SetUnauthorizedResponse(response, "User is unauthorized.");
+//            return;
+//        }
 
-            std::string scheme;
-            std::string base64;
-            request.getCredentials(scheme, base64);
-
-            std::stringstream decode_stream;
-            decode_stream << base64;
-            Poco::Base64Decoder base64_decoder{decode_stream};
-
-            std::string decoded;
-            base64_decoder >> decoded;
-
-            auto credentials = SplitString(decoded, ":");
-            auto user = database::User::AuthUser(credentials[0], credentials[1]);
-            if ( user.has_value() ) {
-                request_sender = user.value();
-            } else {
-                SetBadRequestResponse(response, "Invalid login or password.");
-                return;
-            }
-        } else {
-            SetUnauthorizedResponse(response, "User is unauthorized.");
-            return;
-        }
-
-        /* Проверка доступа к запросу. */
-        if ( request_sender.GetRole() < database::UserRole::User ) {
-            SetPermissionDeniedResponse(response, "User does not have privileges for this action");
-            return;
-        }
+//        /* Проверка доступа к запросу. */
+//        if ( request_sender.GetRole() < database::UserRole::User ) {
+//            SetPermissionDeniedResponse(response, "User does not have privileges for this action");
+//            return;
+//        }
 
         /* Проверка валидности формы */
         if ( !IsFormHasRequired(form, { "id" }) ) {
@@ -380,17 +380,25 @@ namespace handler {
         /* Если форма валидна, то обрабатываем */
         long id = atol(form.get("id").c_str());
 
+        bool use_cache = true;
+        if ( form.has("no_cache")) use_cache = false;
+
         /* Проверка наличия в кэше */
-        std::optional<database::User> user = database::User::FromCacheByID(id);
+        std::optional<database::User> user;
+
+        if ( use_cache )
+            user = database::User::FromCacheByID(id);
 
         if ( !user.has_value() ) {
-            std::cout << "Search by ID" << std::endl;
             user = database::User::SearchByID(id);
+
             if ( !user.has_value() ) {
                 SetNotFoundResponse(response, "User with requested id not found.");
                 return;
             }
-            user->SaveToCache();
+
+            if ( use_cache )
+                user->SaveToCache();
         }
 
         response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
@@ -478,7 +486,6 @@ namespace handler {
 
         std::string auth_token = schema + " " + base64;
         std::string url = "http://127.0.0.1:8080/auth";
-        std::cout << auth_token << std::endl;
 
         Poco::URI uri(url);
         Poco::Net::HTTPClientSession s(uri.getHost(), uri.getPort());

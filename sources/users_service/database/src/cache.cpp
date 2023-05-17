@@ -70,14 +70,19 @@ namespace database
 
     void Cache::Put([[maybe_unused]] long id, [[maybe_unused]] const User& val) {
         std::lock_guard<std::mutex> lck(_mtx);
+
+        assert(_stream != nullptr);
+
+        std::string serialized = val.Serialize();
         rediscpp::value response = rediscpp::execute(*_stream, "set",
                                                      std::to_string(id),
-                                                     val.Serialize(),
+                                                     serialized,
                                                      "ex", "60");
     }
 
     bool Cache::Get([[maybe_unused]] long id, [[maybe_unused]] User& val) {
         std::lock_guard<std::mutex> lck(_mtx);
+        assert(_stream != nullptr);
         rediscpp::value response = rediscpp::execute(*_stream, "get", std::to_string(id));
 
         if (response.is_error_message())
@@ -85,8 +90,12 @@ namespace database
         if (response.empty())
             return false;
 
-        auto serialized = response.as<std::string>();
-        val.Deserialize(serialized);
+        try {
+            auto serialized = response.as<std::string>();
+            val.Deserialize(serialized);
+        } catch ( const std::exception& e ) {
+            return false;
+        }
 
         return true;
     }

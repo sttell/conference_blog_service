@@ -56,7 +56,6 @@ namespace handler {
 
             std::string auth_token = schema + " " + base64;
             std::string url = "http://127.0.0.1:8080/auth";
-            std::cout << auth_token << std::endl;
 
             Poco::URI uri(url);
             Poco::Net::HTTPClientSession s(uri.getHost(), uri.getPort());

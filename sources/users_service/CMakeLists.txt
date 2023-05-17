@@ -73,3 +73,5 @@ add_custom_command(
         ${CMAKE_CURRENT_LIST_DIR}/service/server_config.json
         ${CMAKE_CURRENT_BINARY_DIR}/users_service_data/server_config.json
 )
+
+add_subdirectory(init_db)
